@@ -1,0 +1,164 @@
+---
+title: "Homework 3"
+author: "Chirag Shah"
+date: '2019-04-06'
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Part a
+
+```{r}
+library(ISLR)
+library(caret)
+library(glmnet)
+library(MASS)
+library(e1071)
+library(mlbench)
+library(pROC)
+library(AppliedPredictiveModeling)
+
+summary(Weekly)
+```
+
+```{r}
+#simple plot with Lag1 as the predictor (can be done for the other Lag variables)
+plot(Today~Lag1, col = "red", data = Weekly)
+simplelm = lm(Today~Lag1, data = Weekly)
+abline(simplelm, lwd = 3, col = "grey")
+
+#simple plot with Volume as the predictor
+plot(Today~Volume, col = "blue", data = Weekly)
+simplelm2 = lm(Today~Volume, data = Weekly)
+abline(simplelm2, lwd = 3, col = "grey")
+
+#simple plot with Year as the predictor
+plot(Today~Year, col = "green", data = Weekly)
+simplelm3 = lm(Today~Year, data = Weekly)
+abline(simplelm3, lwd = 3, col = "grey")
+```
+
+Part b 
+
+```{r}
+logmod <- glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume, family = "binomial", data = Weekly)
+summary(logmod)
+```
+
+Of the 6 predictors in the model, the only predictor that was statistically significant was Lag2. The values from 2 weeks before a current values significantly predicts direction. Because our model is a logistic model, the exponentiated coefficient will give us the the change in odds ratio. An increase of 1 in Lag2 increases the odds of direction by e^0.058 = 1.06 compared to the original odds.
+
+Part c
+
+```{r}
+#Creating confusion matrix
+prob = predict(logmod, type = "response")
+pred = rep("Down", 1089)
+pred[prob > 0.5] = "Up"
+confusionMatrix(data = as.factor(pred), reference = Weekly$Direction, positive = "Down")
+```
+
+Overall Fraction of Correct Predictions: 611/1089 = 0.5611
+
+Based on the confusion matrix, we can see that the prediction shows that most of the cases go up (i.e. 987/1089 cases) whereas in reality there are only 605/1089 that go up. This indicates that our prediction model does a poor job of predicting direction. In light of this, we can find a very large proportion of true positives from our model (i.e. that are truly UP: 557/605 = 0.921) at the cost/tradeoff of finding many false positives (i.e. that we have falsely predicted as UP: 430/987 = 0.436). 
+
+Part d
+
+```{r}
+test.pred.prob  <- predict(logmod, newdata = Weekly, type = "response")
+
+roc.glm <- roc(Weekly$Direction, test.pred.prob)
+plot(roc.glm, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(roc.glm), col = 4, add = TRUE)
+```
+
+The AUC is 0.554.
+
+Part e
+
+```{r}
+training.data = Weekly[Weekly$Year < 2009,]
+test.data = Weekly[Weekly$Year > 2008,]
+logmod2 = glm(Direction~Lag1+Lag2, data = training.data, family = "binomial")
+summary(logglm)
+```
+
+```{r}
+test.pred.prob2 <- predict(logmod2, newdata = test.data, type = "response")
+
+roc.glm2 <- roc(test.data$Direction, test.pred.prob2)
+plot(roc.glm2, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(roc.glm2), col = 4, add = TRUE)
+```
+
+The AUC is 0.556.
+
+Part f
+
+```{r}
+#LDA
+lda.fit <- lda(Direction~Lag1+Lag2, data = training.data)
+plot(lda.fit)
+```
+
+```{r}
+#LDA ROC Curve
+lda.pred <- predict(lda.fit, newdata = test.data)
+head(lda.pred$posterior)
+
+roc.lda <- roc(test.data$Direction, lda.pred$posterior[,2])
+
+plot(roc.lda, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(roc.lda), col = 4, add = TRUE)
+```
+
+The AUC value for the LDA model is 0.557.
+
+#We can see how our classifier still seems to pretty much say that most of the samples go Up. We are really liberal at saying the things go up. This is maybe because as we could see in the plot, both groups don’t differ so much in their Lag2 levels, so it’s very difficult to set a proper boundary that differentiates them in a proper way.
+
+The error rate stays the same as it was with the Logistic Regression, 37.5%
+
+```{r}
+#QDA
+qda.fit <- qda(Direction~Lag1+Lag2, data = training.data)
+qda.fit
+```
+
+```{r}
+#QDA ROC Curve
+qda.pred <- predict(qda.fit, newdata = test.data)
+head(qda.pred$posterior)
+
+roc.qda <- roc(test.data$Direction, qda.pred$posterior[,2])
+
+plot(roc.qda, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(roc.qda), col = 4, add = TRUE)
+```
+
+The AUC for the QDA is 0.529. 
+
+#The error rate for the QDA seems to be the worst out of all the models: 41,35%.
+Basically, it classifies ALL of the data, as going up. I could also do that.
+
+Part g
+
+```{r}
+set.seed(1)
+
+train.X = cbind(training.data$Lag2)
+test.X = cbind(test.data$Lag2)
+train.Y = cbind(training.data$Direction)
+knn.pred = knn(train.X, test.X, train.Y, k = 1)
+table(knn.pred, test.data$Direction)
+```
+
+The error rate seems awful, 50%. However, it is better than the other models to identify True Negatives, since it identifies roughly a 49% of them properly.
+
+Although it’s not part of the question, we repeat the analysis with K=3:
+
+```{r}
+knn3.pred = knn(train.X, test.X, train.Y, k = 3)
+table(knn3.pred, test.data$Direction)
+```
