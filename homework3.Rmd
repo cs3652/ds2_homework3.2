@@ -81,8 +81,9 @@ The AUC is 0.554.
 Part e
 
 ```{r}
-training.data = (Weekly$Year < 2009)
-test.data = (Weekly$Year > 2008)
+training.data = Weekly[Weekly$Year < 2009,]
+test.data = Weekly[Weekly$Year > 2008,]
+
 logmod2 = glm(Direction~Lag1+Lag2, data = training.data, family = "binomial")
 summary(logmod2)
 ```
@@ -140,16 +141,18 @@ The AUC for the QDA is 0.529.
 Part g
 
 ```{r}
-train_weekly = Weekly[!training.data,2:3]
-train_direction = Weekly$Direction[!training.data]
+training.data2 = (Weekly$Year < 2009)
+test.data2 = (Weekly$Year > 2008)
+train_weekly = Weekly[!training.data2,2:3]
+train_direction = Weekly$Direction[!training.data2]
 
 ctrl <- trainControl(method = "repeatedcv",
                      repeats = 5,
                      summaryFunction = twoClassSummary,
                      classProbs = TRUE)
 set.seed(1)
-model.knn <- train(x = Weekly[training.data,2:3],
-                   y = Weekly$Direction[training.data],
+model.knn <- train(x = Weekly[training.data2,2:3],
+                   y = Weekly$Direction[training.data2],
                    method = "knn",
                    preProcess = c("center","scale"),
                    tuneGrid = data.frame(k = seq(1, 50, by = 2)),
